@@ -1,0 +1,108 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseRouteClient } from '@/lib/supabase/server';
+import { analyzePerformance } from '@/lib/ai/generator';
+import { checkUsageLimit } from '@/lib/middleware/usage-limiter';
+import { z } from 'zod';
+
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+const analyzeSchema = z.object({
+  upload_id: z.string().uuid(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = getSupabaseRouteClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { upload_id } = analyzeSchema.parse(body);
+
+    // Get upload data with client info
+    const { data: upload, error: uploadError } = await supabase
+      .from('ad_performance_uploads')
+      .select(`
+        *,
+        clients!inner(agency_id, industry)
+      `)
+      .eq('id', upload_id)
+      .single();
+
+    if (uploadError || !upload) {
+      return NextResponse.json({ error: 'Upload not found' }, { status: 404 });
+    }
+
+    const agency_id = ((upload as any).clients as any).agency_id;
+    const industry = ((upload as any).clients as any).industry;
+
+    // Check usage limits
+    const usageCheck = await checkUsageLimit(agency_id, 'performance_analysis');
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { 
+          code: usageCheck.code,
+          error: usageCheck.reason,
+          action_type: usageCheck.action_type,
+          current_usage: usageCheck.current_usage,
+          limit: usageCheck.limit,
+          plan: usageCheck.plan,
+          recommended_plan: usageCheck.recommended_plan,
+        },
+        { status: 429 }
+      );
+    }
+
+    // Get industry benchmark if available
+    let industryBenchmark;
+    if (industry) {
+      const { data: benchmark } = await supabase
+        .from('industry_benchmarks')
+        .select('*')
+        .eq('industry_name', industry)
+        .single();
+      
+      industryBenchmark = benchmark || undefined;
+    }
+
+    // Analyze performance using AI with industry context
+    const analysis = await analyzePerformance(
+      {
+        data: (upload as any).data,
+        industry_benchmark: industryBenchmark,
+      },
+      {
+        agency_id,
+        user_id: user.id,
+      }
+    );
+
+    // Update upload with analysis
+    const { data, error } = await (supabase.from('ad_performance_uploads') as any)
+      .update({ analysis })
+      .eq('id', upload_id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      ...data,
+      usage: {
+        current: usageCheck.current_usage! + 1,
+        limit: usageCheck.limit,
+        plan: usageCheck.plan,
+      },
+    });
+  } catch (error) {
+    console.error('Performance analysis error:', error);
+    return NextResponse.json(
+      { error: 'Failed to analyze performance' },
+      { status: 500 }
+    );
+  }
+}

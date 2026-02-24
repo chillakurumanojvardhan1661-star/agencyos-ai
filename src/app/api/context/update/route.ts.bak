@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { z } from 'zod';
+
+const updateContextSchema = z.object({
+  client_id: z.string().uuid(),
+  winning_hooks: z.array(z.string()).optional(),
+  failed_angles: z.array(z.string()).optional(),
+  seasonal_notes: z.string().optional(),
+  audience_pain_points: z.array(z.string()).optional(),
+  best_performing_platforms: z.array(z.string()).optional(),
+  optimal_posting_times: z.string().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const input = updateContextSchema.parse(body);
+
+    // Verify client ownership
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .select('agency_id')
+      .eq('id', input.client_id)
+      .single();
+
+    if (clientError || !client) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    }
+
+    // Upsert client context
+    const { data, error } = await supabase
+      .from('client_contexts')
+      .upsert({
+        client_id: input.client_id,
+        winning_hooks: input.winning_hooks,
+        failed_angles: input.failed_angles,
+        seasonal_notes: input.seasonal_notes,
+        audience_pain_points: input.audience_pain_points,
+        best_performing_platforms: input.best_performing_platforms,
+        optimal_posting_times: input.optimal_posting_times,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Context update error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update client context' },
+      { status: 500 }
+    );
+  }
+}

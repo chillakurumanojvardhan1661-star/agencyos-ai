@@ -1,0 +1,114 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { stripe } from '@/lib/stripe/client';
+import { createClient } from '@supabase/supabase-js';
+import { trackTrialConverted, trackTrialExpired } from '@/lib/analytics/tracker';
+import Stripe from 'stripe';
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(request: NextRequest) {
+  const body = await request.text();
+  const signature = request.headers.get('stripe-signature')!;
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
+  } catch (err) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+  }
+
+  try {
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        
+        // Determine plan from Stripe price ID
+        const priceId = subscription.items.data[0]?.price.id;
+        let plan = 'starter';
+        
+        if (priceId === process.env.STRIPE_PROFESSIONAL_PRICE_ID) {
+          plan = 'professional';
+        } else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID) {
+          plan = 'enterprise';
+        }
+
+        // Check if converting from trial
+        const { data: existingSubscription } = await supabaseAdmin
+          .from('subscriptions')
+          .select('is_trial, agency_id')
+          .eq('stripe_customer_id', subscription.customer as string)
+          .single();
+
+        if (existingSubscription?.is_trial) {
+          // Convert trial to paid using database function
+          await supabaseAdmin.rpc('convert_trial_to_paid', {
+            p_agency_id: existingSubscription.agency_id,
+            p_plan: plan,
+            p_stripe_subscription_id: subscription.id,
+          });
+
+          // Track trial conversion analytics
+          const { data: agency } = await supabaseAdmin
+            .from('agencies')
+            .select('owner_id')
+            .eq('id', existingSubscription.agency_id)
+            .single();
+
+          if (agency) {
+            await trackTrialConverted(
+              existingSubscription.agency_id,
+              agency.owner_id,
+              plan,
+              subscription.id
+            );
+          }
+        } else {
+          // Regular subscription update
+          await supabaseAdmin
+            .from('subscriptions')
+            .upsert({
+              stripe_subscription_id: subscription.id,
+              stripe_customer_id: subscription.customer as string,
+              plan,
+              status: subscription.status,
+              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+              cancel_at_period_end: subscription.cancel_at_period_end,
+              is_trial: false,
+            });
+        }
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        
+        // Downgrade to starter instead of canceling
+        await supabaseAdmin
+          .from('subscriptions')
+          .update({ 
+            status: 'active',
+            plan: 'starter',
+            is_trial: false,
+            stripe_subscription_id: null,
+          })
+          .eq('stripe_subscription_id', subscription.id);
+        break;
+      }
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+  }
+}

@@ -1,0 +1,48 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseRouteClient } from '@/lib/supabase/server';
+import { 
+  setFirstLogin, 
+  setFirstContentGenerated, 
+  setFirstReportGenerated, 
+  setActivated 
+} from '@/lib/onboarding/tracker';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = getSupabaseRouteClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { event } = body;
+
+    switch (event) {
+      case 'first_login':
+        await setFirstLogin();
+        break;
+      case 'first_content_generated':
+        await setFirstContentGenerated();
+        break;
+      case 'first_report_generated':
+        await setFirstReportGenerated();
+        break;
+      case 'activated':
+        await setActivated();
+        break;
+      default:
+        return NextResponse.json({ error: 'Invalid event' }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Analytics tracking error:', error);
+    // Return success even on error - analytics shouldn't break functionality
+    return NextResponse.json({ success: true });
+  }
+}

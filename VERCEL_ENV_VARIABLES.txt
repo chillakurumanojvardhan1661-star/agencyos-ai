@@ -1,0 +1,123 @@
+VERCEL ENVIRONMENT VARIABLES - COPY/PASTE READY
+================================================================
+
+Go to: https://vercel.com/manojs-projects-5f211bbe/agencyos-ai/settings/environment-variables
+
+For each variable below, click "Add New" and paste the Name and Value.
+Select "Production, Preview, Development" for all variables.
+
+================================================================
+STEP 1: GET SUPABASE KEYS
+================================================================
+
+Go to: https://supabase.com/dashboard/project/bqkvakodsxiqkjuvbrqo/settings/api
+
+Copy the following values from that page:
+
+1. Project URL (under "Configuration")
+2. anon public key (under "Project API keys")
+3. service_role key (under "Project API keys" - click "Reveal" button)
+
+================================================================
+REQUIRED VARIABLES (Must set these first)
+================================================================
+
+Name: NEXT_PUBLIC_SUPABASE_URL
+Value: https://bqkvakodsxiqkjuvbrqo.supabase.co
+Environment: Production, Preview, Development
+
+---
+
+Name: NEXT_PUBLIC_SUPABASE_ANON_KEY
+Value: [PASTE YOUR ANON KEY FROM SUPABASE]
+Environment: Production, Preview, Development
+
+---
+
+Name: SUPABASE_SERVICE_ROLE_KEY
+Value: [PASTE YOUR SERVICE_ROLE KEY FROM SUPABASE]
+Environment: Production, Preview, Development
+
+---
+
+Name: OPENAI_API_KEY
+Value: [PASTE YOUR OPENAI API KEY - starts with sk-proj- or sk-]
+Environment: Production, Preview, Development
+
+---
+
+Name: NEXT_PUBLIC_APP_URL
+Value: https://agencyos-o0iu5haz2-manojs-projects-5f211bbe.vercel.app
+Environment: Production, Preview, Development
+
+---
+
+Name: NEXT_PUBLIC_SITE_URL
+Value: https://agencyos-o0iu5haz2-manojs-projects-5f211bbe.vercel.app
+Environment: Production, Preview, Development
+
+================================================================
+OPTIONAL VARIABLES (Can add later for Stripe payments)
+================================================================
+
+Name: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+Value: [YOUR STRIPE PUBLISHABLE KEY - starts with pk_test_ or pk_live_]
+Environment: Production, Preview, Development
+
+---
+
+Name: STRIPE_SECRET_KEY
+Value: [YOUR STRIPE SECRET KEY - starts with sk_test_ or sk_live_]
+Environment: Production, Preview, Development
+
+---
+
+Name: STRIPE_WEBHOOK_SECRET
+Value: [YOUR STRIPE WEBHOOK SECRET - starts with whsec_]
+Environment: Production, Preview, Development
+
+---
+
+Name: STRIPE_PRICE_STARTER
+Value: [YOUR STRIPE PRICE ID - starts with price_]
+Environment: Production, Preview, Development
+
+---
+
+Name: STRIPE_PRICE_PROFESSIONAL
+Value: [YOUR STRIPE PRICE ID - starts with price_]
+Environment: Production, Preview, Development
+
+---
+
+Name: STRIPE_PRICE_ENTERPRISE
+Value: [YOUR STRIPE PRICE ID - starts with price_]
+Environment: Production, Preview, Development
+
+================================================================
+QUICK CHECKLIST
+================================================================
+
+✅ Step 1: Get Supabase keys from:
+   https://supabase.com/dashboard/project/bqkvakodsxiqkjuvbrqo/settings/api
+
+✅ Step 2: Get OpenAI API key from:
+   https://platform.openai.com/api-keys
+
+✅ Step 3: Add all 6 REQUIRED variables to Vercel
+
+✅ Step 4: Redeploy with: vercel --prod
+
+✅ Step 5 (Optional): Set up Stripe later when ready for payments
+
+================================================================
+AFTER SETTING VARIABLES
+================================================================
+
+Run this command to redeploy:
+
+vercel --prod
+
+Or go to Vercel dashboard and click "Redeploy" button.
+
+================================================================

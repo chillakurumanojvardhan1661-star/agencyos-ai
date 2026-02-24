@@ -1,0 +1,99 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseRouteClient } from '@/lib/supabase/server';
+import { initializeProTrial, isEligibleForTrial } from '@/lib/trial/initializer';
+import { stripe } from '@/lib/stripe/client';
+
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+/**
+ * Initialize a 7-day Pro trial for a new user
+ * This should be called after agency creation during onboarding
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = getSupabaseRouteClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get user's agency
+    const { data: agency, error: agencyError } = await supabase
+      .from('agencies')
+      .select('id, owner_id')
+      .eq('owner_id', user.id)
+      .single();
+
+    if (agencyError || !agency) {
+      return NextResponse.json(
+        { error: 'Agency not found. Please create an agency first.' },
+        { status: 404 }
+      );
+    }
+
+    // Type assertion for agency query
+    // TODO: Remove after generating real Supabase types
+    const agencyData = agency as any;
+
+    // Check eligibility
+    const eligible = await isEligibleForTrial(agencyData.id);
+    if (!eligible) {
+      return NextResponse.json(
+        { error: 'Not eligible for trial. Subscription already exists.' },
+        { status: 400 }
+      );
+    }
+
+    // Create or get Stripe customer
+    let stripeCustomerId: string;
+    
+    const { data: existingSubscription } = await supabase
+      .from('subscriptions')
+      .select('stripe_customer_id')
+      .eq('agency_id', agencyData.id)
+      .single();
+
+    // Type assertion for subscription query
+    // TODO: Remove after generating real Supabase types
+    const subscriptionData = existingSubscription as any;
+
+    if (subscriptionData?.stripe_customer_id) {
+      stripeCustomerId = subscriptionData.stripe_customer_id;
+    } else {
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          agency_id: agencyData.id,
+          user_id: user.id,
+        },
+      });
+      stripeCustomerId = customer.id;
+    }
+
+    // Initialize trial
+    const result = await initializeProTrial(agencyData.id, stripeCustomerId);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || 'Failed to initialize trial' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Pro trial activated! You have 7 days of full Professional features.',
+      subscription_id: result.subscription_id,
+      trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+  } catch (error) {
+    console.error('Trial initialization error:', error);
+    return NextResponse.json(
+      { error: 'Failed to initialize trial' },
+      { status: 500 }
+    );
+  }
+}

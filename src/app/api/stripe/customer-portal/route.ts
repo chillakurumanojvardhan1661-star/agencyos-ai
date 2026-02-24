@@ -1,0 +1,60 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseRouteClient } from '@/lib/supabase/server';
+import { stripe } from '@/lib/stripe/client';
+
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = getSupabaseRouteClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+
+    // Get agency and subscription
+    const { data: agency } = await supabase
+      .from('agencies')
+      .select('id')
+      .eq('owner_id', user.id)
+      .single();
+
+    if (!agency) {
+      return NextResponse.json({ error: 'Agency not found' }, { status: 404 });
+    }
+
+    // Type assertion for agency query
+    // TODO: Remove after generating real Supabase types
+    const agencyData = agency as any;
+
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('stripe_customer_id')
+      .eq('agency_id', agencyData.id)
+      .single();
+
+    // Type assertion for subscription query
+    // TODO: Remove after generating real Supabase types
+    const subscriptionData = subscription as any;
+
+    if (!subscriptionData?.stripe_customer_id) {
+      return NextResponse.json({ error: 'No subscription found' }, { status: 404 });
+    }
+
+    // Create portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: subscriptionData.stripe_customer_id,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`,
+    });
+
+    return NextResponse.redirect(session.url);
+  } catch (error) {
+    console.error('Customer portal error:', error);
+    return NextResponse.json(
+      { error: 'Failed to create portal session' },
+      { status: 500 }
+    );
+  }
+}
