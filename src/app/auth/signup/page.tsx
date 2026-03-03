@@ -41,9 +41,8 @@ export default function SignupPage() {
         const { error: agencyError } = await supabase
           .from('agencies')
           .insert({
-            id: authData.user.id,
+            owner_id: authData.user.id,
             name: agencyName,
-            email: email,
           });
 
         if (agencyError) {
@@ -51,7 +50,7 @@ export default function SignupPage() {
         }
 
         setSuccess(true);
-        
+
         // If email confirmation is disabled, redirect to dashboard
         if (authData.session) {
           setTimeout(() => {

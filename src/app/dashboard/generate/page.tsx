@@ -9,6 +9,7 @@ import { UsageUpgradeModal } from '@/components/modals/usage-upgrade-modal';
 import { SuccessCelebrationModal } from '@/components/modals/success-celebration-modal';
 import { Sparkles, ThumbsUp, ThumbsDown, Star, Copy } from 'lucide-react';
 import { SubscriptionPlan, ActionType, AdCopy, ReelScript, Platform, Objective, Tone } from '@/types';
+import Link from 'next/link';
 
 function GenerateContentPageContent() {
   const searchParams = useSearchParams();
@@ -19,15 +20,38 @@ function GenerateContentPageContent() {
   const [usageWarningData, setUsageWarningData] = useState<any>(null);
   const [generatedContent, setGeneratedContent] = useState<any>(null);
   const [feedbackLoading, setFeedbackLoading] = useState<string | null>(null);
-  
+
+  const [clients, setClients] = useState<any[]>([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+
   // Form state with template pre-fill support
   const [formData, setFormData] = useState({
+    client_id: '',
     platform: 'meta' as Platform,
     objective: 'leads' as Objective,
     tone: 'professional' as Tone,
     offer: '',
     target_audience: '',
   });
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch('/api/clients');
+      const data = await response.json();
+      setClients(data);
+      if (data.length > 0) {
+        setFormData(prev => ({ ...prev, client_id: data[0].id }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch clients:', error);
+    } finally {
+      setLoadingClients(false);
+    }
+  };
 
   // Pre-fill form from URL params (template usage)
   useEffect(() => {
@@ -38,13 +62,14 @@ function GenerateContentPageContent() {
     const target_audience = searchParams.get('target_audience');
 
     if (platform || objective || tone || offer || target_audience) {
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         platform: platform || 'meta',
         objective: objective || 'leads',
         tone: tone || 'professional',
         offer: offer || '',
         target_audience: target_audience || '',
-      });
+      }));
     }
   }, [searchParams]);
 
@@ -53,10 +78,7 @@ function GenerateContentPageContent() {
       const response = await fetch('/api/content/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: 'example-client-id',
-          ...formData,
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -78,12 +100,12 @@ function GenerateContentPageContent() {
       }
 
       setGeneratedContent(data);
-      
+
       // Show success modal if first content
       if (data.is_first_content) {
         setShowSuccessModal(true);
       }
-      
+
       // Show usage warning modal if approaching limit
       if (data.usage_warning) {
         setUsageWarningData(data.usage_warning);
@@ -146,12 +168,41 @@ function GenerateContentPageContent() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Client</label>
+                <select
+                  value={formData.client_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                  disabled={loadingClients}
+                >
+                  {loadingClients ? (
+                    <option>Loading clients...</option>
+                  ) : clients.length === 0 ? (
+                    <option>No clients found</option>
+                  ) : (
+                    clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {clients.length === 0 && !loadingClients && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <Link href="/dashboard/clients" className="text-primary hover:underline">
+                      Add a client
+                    </Link> to start generating.
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="text-sm font-medium mb-2 block">Platform</label>
                 <select
                   value={formData.platform}
-                  onChange={(e) => setFormData({ ...formData, platform: e.target.value as Platform })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, platform: e.target.value as Platform }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                 >
                   <option value="meta">Meta (Facebook/Instagram)</option>
@@ -159,12 +210,14 @@ function GenerateContentPageContent() {
                   <option value="linkedin">LinkedIn</option>
                 </select>
               </div>
+            </div>
 
+            <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">Objective</label>
                 <select
                   value={formData.objective}
-                  onChange={(e) => setFormData({ ...formData, objective: e.target.value as Objective })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, objective: e.target.value as Objective }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                 >
                   <option value="leads">Leads</option>
@@ -177,7 +230,7 @@ function GenerateContentPageContent() {
                 <label className="text-sm font-medium mb-2 block">Tone</label>
                 <select
                   value={formData.tone}
-                  onChange={(e) => setFormData({ ...formData, tone: e.target.value as Tone })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tone: e.target.value as Tone }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                 >
                   <option value="professional">Professional</option>
@@ -196,7 +249,7 @@ function GenerateContentPageContent() {
                 <input
                   type="text"
                   value={formData.offer}
-                  onChange={(e) => setFormData({ ...formData, offer: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, offer: e.target.value }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                   placeholder="e.g., 50% off first month"
                 />
@@ -207,7 +260,7 @@ function GenerateContentPageContent() {
                 <input
                   type="text"
                   value={formData.target_audience}
-                  onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, target_audience: e.target.value }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                   placeholder="e.g., Fitness enthusiasts aged 25-45"
                 />
@@ -223,182 +276,186 @@ function GenerateContentPageContent() {
       </Card>
 
       {/* Generated Content */}
-      {generatedContent && (
-        <>
-          {/* Ad Copies */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Ad Copies</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {generatedContent.ad_copies?.map((copy: AdCopy, index: number) => (
-                <div key={index} className="p-4 border border-border rounded-lg space-y-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Primary Text</div>
-                    <div className="text-sm">{copy.primary_text}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Headline</div>
-                    <div className="text-sm font-semibold">{copy.headline}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">CTA</div>
-                    <div className="text-sm">{copy.cta}</div>
-                  </div>
-                  
-                  {/* Feedback Buttons */}
-                  <div className="flex gap-2 pt-2 border-t border-border">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFeedback(
-                        generatedContent.id,
-                        'winner',
-                        copy.primary_text,
-                        'ad_copy'
-                      )}
-                      disabled={feedbackLoading === `winner-${copy.primary_text}`}
-                    >
-                      <ThumbsUp className="h-4 w-4 mr-1" />
-                      Winner
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFeedback(
-                        generatedContent.id,
-                        'failed',
-                        copy.primary_text,
-                        'ad_copy'
-                      )}
-                      disabled={feedbackLoading === `failed-${copy.primary_text}`}
-                    >
-                      <ThumbsDown className="h-4 w-4 mr-1" />
-                      Failed
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFeedback(
-                        generatedContent.id,
-                        'save_hook',
-                        copy.headline,
-                        'hook'
-                      )}
-                      disabled={feedbackLoading === `save_hook-${copy.headline}`}
-                    >
-                      <Star className="h-4 w-4 mr-1" />
-                      Save Hook
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(`${copy.primary_text}\n\n${copy.headline}\n\n${copy.cta}`)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+      {
+        generatedContent && (
+          <>
+            {/* Ad Copies */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Ad Copies</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {generatedContent.ad_copies?.map((copy: AdCopy, index: number) => (
+                  <div key={index} className="p-4 border border-border rounded-lg space-y-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Primary Text</div>
+                      <div className="text-sm">{copy.primary_text}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Headline</div>
+                      <div className="text-sm font-semibold">{copy.headline}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">CTA</div>
+                      <div className="text-sm">{copy.cta}</div>
+                    </div>
 
-          {/* Reel Scripts */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Reel Scripts</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {generatedContent.reel_scripts?.map((script: ReelScript, index: number) => (
-                <div key={index} className="p-4 border border-border rounded-lg space-y-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Hook (First 3 seconds)</div>
-                    <div className="text-sm font-semibold">{script.hook}</div>
+                    {/* Feedback Buttons */}
+                    <div className="flex gap-2 pt-2 border-t border-border">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFeedback(
+                          generatedContent.id,
+                          'winner',
+                          copy.primary_text,
+                          'ad_copy'
+                        )}
+                        disabled={feedbackLoading === `winner-${copy.primary_text}`}
+                      >
+                        <ThumbsUp className="h-4 w-4 mr-1" />
+                        Winner
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFeedback(
+                          generatedContent.id,
+                          'failed',
+                          copy.primary_text,
+                          'ad_copy'
+                        )}
+                        disabled={feedbackLoading === `failed-${copy.primary_text}`}
+                      >
+                        <ThumbsDown className="h-4 w-4 mr-1" />
+                        Failed
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFeedback(
+                          generatedContent.id,
+                          'save_hook',
+                          copy.headline,
+                          'hook'
+                        )}
+                        disabled={feedbackLoading === `save_hook-${copy.headline}`}
+                      >
+                        <Star className="h-4 w-4 mr-1" />
+                        Save Hook
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(`${copy.primary_text}\n\n${copy.headline}\n\n${copy.cta}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Body</div>
-                    <div className="text-sm">{script.body}</div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Reel Scripts */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Reel Scripts</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {generatedContent.reel_scripts?.map((script: ReelScript, index: number) => (
+                  <div key={index} className="p-4 border border-border rounded-lg space-y-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Hook (First 3 seconds)</div>
+                      <div className="text-sm font-semibold">{script.hook}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Body</div>
+                      <div className="text-sm">{script.body}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">CTA</div>
+                      <div className="text-sm">{script.cta}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Duration</div>
+                      <div className="text-sm">{script.duration}</div>
+                    </div>
+
+                    {/* Feedback Buttons */}
+                    <div className="flex gap-2 pt-2 border-t border-border">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFeedback(
+                          generatedContent.id,
+                          'winner',
+                          script.hook,
+                          'reel_script'
+                        )}
+                        disabled={feedbackLoading === `winner-${script.hook}`}
+                      >
+                        <ThumbsUp className="h-4 w-4 mr-1" />
+                        Winner
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFeedback(
+                          generatedContent.id,
+                          'failed',
+                          script.hook,
+                          'reel_script'
+                        )}
+                        disabled={feedbackLoading === `failed-${script.hook}`}
+                      >
+                        <ThumbsDown className="h-4 w-4 mr-1" />
+                        Failed
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFeedback(
+                          generatedContent.id,
+                          'save_hook',
+                          script.hook,
+                          'hook'
+                        )}
+                        disabled={feedbackLoading === `save_hook-${script.hook}`}
+                      >
+                        <Star className="h-4 w-4 mr-1" />
+                        Save Hook
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(`${script.hook}\n\n${script.body}\n\n${script.cta}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">CTA</div>
-                    <div className="text-sm">{script.cta}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Duration</div>
-                    <div className="text-sm">{script.duration}</div>
-                  </div>
-                  
-                  {/* Feedback Buttons */}
-                  <div className="flex gap-2 pt-2 border-t border-border">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFeedback(
-                        generatedContent.id,
-                        'winner',
-                        script.hook,
-                        'reel_script'
-                      )}
-                      disabled={feedbackLoading === `winner-${script.hook}`}
-                    >
-                      <ThumbsUp className="h-4 w-4 mr-1" />
-                      Winner
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFeedback(
-                        generatedContent.id,
-                        'failed',
-                        script.hook,
-                        'reel_script'
-                      )}
-                      disabled={feedbackLoading === `failed-${script.hook}`}
-                    >
-                      <ThumbsDown className="h-4 w-4 mr-1" />
-                      Failed
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFeedback(
-                        generatedContent.id,
-                        'save_hook',
-                        script.hook,
-                        'hook'
-                      )}
-                      disabled={feedbackLoading === `save_hook-${script.hook}`}
-                    >
-                      <Star className="h-4 w-4 mr-1" />
-                      Save Hook
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(`${script.hook}\n\n${script.body}\n\n${script.cta}`)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </>
-      )}
+                ))}
+              </CardContent>
+            </Card>
+          </>
+        )
+      }
 
       {/* Upgrade Modal */}
-      {upgradeData && (
-        <UpgradeModal
-          isOpen={isUpgradeModalOpen}
-          onClose={() => setIsUpgradeModalOpen(false)}
-          currentPlan={upgradeData.currentPlan}
-          recommendedPlan={upgradeData.recommendedPlan}
-          actionType={upgradeData.actionType}
-          currentUsage={upgradeData.currentUsage}
-          limit={upgradeData.limit}
-        />
-      )}
+      {
+        upgradeData && (
+          <UpgradeModal
+            isOpen={isUpgradeModalOpen}
+            onClose={() => setIsUpgradeModalOpen(false)}
+            currentPlan={upgradeData.currentPlan}
+            recommendedPlan={upgradeData.recommendedPlan}
+            actionType={upgradeData.actionType}
+            currentUsage={upgradeData.currentUsage}
+            limit={upgradeData.limit}
+          />
+        )
+      }
 
       {/* Success Celebration Modal */}
       <SuccessCelebrationModal
@@ -411,19 +468,21 @@ function GenerateContentPageContent() {
       />
 
       {/* Usage Upgrade Modal */}
-      {usageWarningData && (
-        <UsageUpgradeModal
-          isOpen={isUsageUpgradeModalOpen}
-          onClose={() => setIsUsageUpgradeModalOpen(false)}
-          currentPlan={usageWarningData.plan}
-          recommendedPlan={usageWarningData.recommended_plan}
-          usagePercentage={usageWarningData.usage_percentage}
-          currentUsage={usageWarningData.current_usage}
-          limit={usageWarningData.limit}
-          actionType="content_generation"
-        />
-      )}
-    </div>
+      {
+        usageWarningData && (
+          <UsageUpgradeModal
+            isOpen={isUsageUpgradeModalOpen}
+            onClose={() => setIsUsageUpgradeModalOpen(false)}
+            currentPlan={usageWarningData.plan}
+            recommendedPlan={usageWarningData.recommended_plan}
+            usagePercentage={usageWarningData.usage_percentage}
+            currentUsage={usageWarningData.current_usage}
+            limit={usageWarningData.limit}
+            actionType="content_generation"
+          />
+        )
+      }
+    </div >
   );
 }
 

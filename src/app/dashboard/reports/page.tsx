@@ -19,11 +19,20 @@ export default function ReportsPage() {
   const handleGenerateReport = async () => {
     setGenerating(true);
     try {
+      // Fetch the latest upload for this user/agency
+      const uploadsResponse = await fetch('/api/uploads');
+      const uploads = await uploadsResponse.json();
+      const latestUpload = uploads[0];
+
+      if (!latestUpload) {
+        throw new Error('No data found. Please upload a CSV first.');
+      }
+
       const response = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          upload_id: 'example-upload-id', // Replace with actual upload ID
+          upload_id: latestUpload.id,
         }),
       });
 
@@ -35,7 +44,7 @@ export default function ReportsPage() {
 
       setReportHtml(data.html);
       setReportId(data.id);
-      
+
       // Check if this is the first report
       if (data.is_first_report) {
         setIsFirstReport(true);
@@ -130,10 +139,10 @@ export default function ReportsPage() {
             <p className="text-muted-foreground">
               Generate comprehensive performance reports with AI insights, charts, and recommendations.
             </p>
-            
+
             <div className="flex gap-3">
-              <Button 
-                onClick={handleGenerateReport} 
+              <Button
+                onClick={handleGenerateReport}
                 disabled={generating}
                 size="lg"
               >
@@ -143,24 +152,24 @@ export default function ReportsPage() {
 
               {reportHtml && (
                 <>
-                  <Button 
-                    onClick={handlePreview} 
+                  <Button
+                    onClick={handlePreview}
                     variant="outline"
                     size="lg"
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     Preview
                   </Button>
-                  <Button 
-                    onClick={handleDownload} 
+                  <Button
+                    onClick={handleDownload}
                     variant="outline"
                     size="lg"
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download HTML
                   </Button>
-                  <Button 
-                    onClick={handleShare} 
+                  <Button
+                    onClick={handleShare}
                     variant="outline"
                     size="lg"
                     disabled={sharing}

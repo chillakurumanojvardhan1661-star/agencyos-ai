@@ -1,36 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, Brain } from 'lucide-react';
 
 export default function ClientsPage() {
-  // Mock data - in production, fetch from API
-  const clients = [
-    {
-      id: 'client-1',
-      name: 'Fitness Pro',
-      industry: 'fitness',
-      website: 'https://fitnesspro.com',
-      context_count: 8,
-    },
-    {
-      id: 'client-2',
-      name: 'E-commerce Store',
-      industry: 'ecommerce',
-      website: 'https://store.com',
-      context_count: 5,
-    },
-    {
-      id: 'client-3',
-      name: 'Real Estate Agency',
-      industry: 'real_estate',
-      website: 'https://realestate.com',
-      context_count: 12,
-    },
-  ];
+  const [clients, setClients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch('/api/clients');
+      const data = await response.json();
+      setClients(data);
+    } catch (error) {
+      console.error('Failed to fetch clients:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-muted-foreground">Loading clients...</div>;
+  }
 
   return (
     <div className="space-y-6">
