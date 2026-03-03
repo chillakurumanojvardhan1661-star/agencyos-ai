@@ -7,7 +7,7 @@ export const SITE_CONFIG = {
   ogImage: 'https://agencyos.ai/og-image.png',
 } as const;
 
-export const APP_URL = 'https://app.agencyos.ai';
+export const APP_URL = '';
 export const TRIAL_URL = '/auth/signup';
 export const DEMO_URL = '/demo';
 
@@ -23,7 +23,7 @@ export function buildTrialUrl(content: string, campaign: string = 'trial'): stri
     utm_campaign: campaign,
     utm_content: content,
   });
-  
+
   return `${TRIAL_URL}?${params.toString()}`;
 }
 
