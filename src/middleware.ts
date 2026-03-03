@@ -17,7 +17,13 @@ export function middleware(request: NextRequest) {
   // Extract domain (handle localhost and production)
   const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
   const isAppSubdomain = hostname.startsWith('app.');
-  const isRootDomain = !isAppSubdomain && !isLocalhost;
+  const isVercel = hostname.endsWith('.vercel.app');
+  const isRootDomain = !isAppSubdomain && !isLocalhost && !isVercel;
+
+  // For Vercel preview deployments, allow all routes
+  if (isVercel) {
+    return NextResponse.next();
+  }
 
   // Never interfere with API routes - they work on both domains
   if (pathname.startsWith('/api/')) {
