@@ -4,19 +4,20 @@ import { generateReportHTML } from '@/lib/pdf/generator';
 import { checkUsageLimit } from '@/lib/middleware/usage-limiter';
 import { markOnboardingStep, setFirstReportGenerated, ONBOARDING_STEPS } from '@/lib/onboarding/tracker';
 import { trackTrialActivated } from '@/lib/analytics/tracker';
+import { getAuthUser } from '@/lib/auth';
 
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseRouteClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const supabase = getSupabaseRouteClient();
     const body = await request.json();
     const { upload_id } = body;
 
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     // Mark onboarding step as complete
     await markOnboardingStep(ONBOARDING_STEPS.UPLOAD_CSV_REPORT);
-    
+
     // Track first report generation timestamp
     await setFirstReportGenerated();
 

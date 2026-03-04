@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseRouteClient } from '@/lib/supabase/server';
+import { getAuthUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
-        const supabase = getSupabaseRouteClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await getAuthUser();
 
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const supabase = getSupabaseRouteClient();
         const agencyResponse = await supabase.from('agencies').select('id').eq('owner_id', user.id).single();
         const agencyId = (agencyResponse.data as any)?.id;
 
@@ -19,8 +20,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json([]);
         }
 
-        const { data: uploads, error } = await supabase
-            .from('uploads' as any)
+        const { data: uploads, error } = await (supabase.from('uploads' as any) as any)
             .select('*')
             .eq('agency_id', agencyId)
             .order('created_at', { ascending: false });

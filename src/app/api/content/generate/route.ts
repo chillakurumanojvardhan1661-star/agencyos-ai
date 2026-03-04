@@ -4,6 +4,7 @@ import { generateContent } from '@/lib/ai/generator';
 import { checkUsageLimit } from '@/lib/middleware/usage-limiter';
 import { checkUsageWarning } from '@/lib/middleware/plan-gating';
 import { markOnboardingStep, setFirstContentGenerated, ONBOARDING_STEPS } from '@/lib/onboarding/tracker';
+import { getAuthUser } from '@/lib/auth';
 import { z } from 'zod';
 
 
@@ -21,13 +22,13 @@ const generateSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseRouteClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const supabase = getSupabaseRouteClient();
     const body = await request.json();
     const input = generateSchema.parse(body);
 
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     const usageCheck = await checkUsageLimit((client as any).agency_id, 'content_generation');
     if (!usageCheck.allowed) {
       return NextResponse.json(
-        { 
+        {
           code: usageCheck.code,
           error: usageCheck.reason,
           action_type: usageCheck.action_type,
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     // Mark onboarding step as complete
     await markOnboardingStep(ONBOARDING_STEPS.GENERATE_CONTENT);
-    
+
     // Track first content generation timestamp
     await setFirstContentGenerated();
 

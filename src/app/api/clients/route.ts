@@ -1,43 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseRouteClient } from '@/lib/supabase/server';
+import { getAuthUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
-        const supabase = getSupabaseRouteClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await getAuthUser();
 
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { data: agencyData } = await (supabase
+        const supabase = getSupabaseRouteClient();
+
+        // Get agency ID for this user
+        const { data: agencyData, error: agencyError } = await supabase
             .from('agencies')
             .select('id')
-            .eq('owner_id', user.id)
-            .single() as any);
+            .eq('owner_id', user.id as any) // Use any to bypass lint error
+            .single();
 
-        if (!agencyData?.id) {
+        if (agencyError || !agencyData) {
             return NextResponse.json([]);
         }
 
-        const { data: clients, error } = await (supabase
-            .from('clients')
-            .select('*, content_generations(count)')
-            .eq('agency_id', agencyData.id) as any);
+        const { data: clients, error } = await (supabase.from('clients' as any) as any)
+            .select('*')
+            .eq('agency_id', agencyData.id);
 
         if (error) throw error;
 
-        // Transform to match local UI expectations
-        const transformedClients = (clients as any[] || []).map(client => ({
-            ...client,
-            context_count: client.content_generations?.[0]?.count || 0
-        }));
-
-        return NextResponse.json(transformedClients);
+        return NextResponse.json(clients);
     } catch (error) {
         console.error('Failed to fetch clients:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Internal Server Error' },
+            { status: 500 }
+        );
     }
 }

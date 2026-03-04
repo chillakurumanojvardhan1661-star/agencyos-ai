@@ -7,6 +7,9 @@ import { LayoutDashboard, Users, Sparkles, FileText, CreditCard, FileCode, BarCh
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/components/auth/FirebaseAuthProvider';
+import { auth as firebaseAuth } from '@/lib/firebase/config';
+import { signOut as firebaseSignOut } from 'firebase/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -22,6 +25,7 @@ const adminNavigation = [
 ];
 
 export function Sidebar() {
+  const { user: firebaseUser } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -30,8 +34,12 @@ export function Sidebar() {
 
   useEffect(() => {
     checkAdminStatus();
-    getUserEmail();
-  }, []);
+    if (firebaseUser) {
+      setUserEmail(firebaseUser.email || '');
+    } else {
+      getUserEmail();
+    }
+  }, [firebaseUser]);
 
   const getUserEmail = async () => {
     try {
@@ -49,7 +57,7 @@ export function Sidebar() {
     try {
       const supabase = createClient();
       const { data, error } = await supabase.rpc('is_admin');
-      
+
       if (!error && data) {
         setIsAdmin(true);
       }
@@ -62,8 +70,15 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     try {
+      if (firebaseUser) {
+        await firebaseSignOut(firebaseAuth);
+      }
       const supabase = createClient();
       await supabase.auth.signOut();
+
+      // Clear cookie manually just in case
+      document.cookie = 'firebase-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
       router.push('/auth/login');
       router.refresh();
     } catch (error) {
@@ -98,7 +113,7 @@ export function Sidebar() {
             </Link>
           );
         })}
-        
+
         {/* Admin Section */}
         {!loading && isAdmin && (
           <>
@@ -127,7 +142,7 @@ export function Sidebar() {
           </>
         )}
       </nav>
-      
+
       {/* Logout Button */}
       <div className="p-3 border-t border-border">
         <Button

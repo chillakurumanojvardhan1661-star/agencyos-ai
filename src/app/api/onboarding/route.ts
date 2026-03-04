@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseRouteClient } from '@/lib/supabase/server';
+import { getAuthUser } from '@/lib/auth';
 
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseRouteClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const supabase = getSupabaseRouteClient();
+
     // Get onboarding status using database function
-    const { data, error } = await supabase
-      .rpc('get_onboarding_status' as any)
+    const { data, error } = await (supabase
+      .rpc('get_onboarding_status' as any) as any)
       .single();
 
     if (error) throw error;
@@ -32,13 +34,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseRouteClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const supabase = getSupabaseRouteClient();
     const body = await request.json();
     const { step } = body;
 
@@ -47,17 +49,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Update onboarding step using database function
-    const { error } = await supabase
+    const { error } = await (supabase
       .rpc('update_onboarding_step' as any, {
         step_name: step,
         completed: true,
-      } as any);
+      } as any) as any);
 
     if (error) throw error;
 
     // Get updated status
-    const { data: status } = await supabase
-      .rpc('get_onboarding_status' as any)
+    const { data: status } = await (supabase
+      .rpc('get_onboarding_status' as any) as any)
       .single();
 
     return NextResponse.json(status);
