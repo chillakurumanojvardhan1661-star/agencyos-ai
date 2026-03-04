@@ -9,10 +9,22 @@ import type { Database } from '@/types/supabase';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
-const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+
+// Lazy initialization to avoid build-time crash when env vars are missing
+let _supabaseAdmin: ReturnType<typeof createClient<Database>> | null = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabaseAdmin;
+}
+// Alias for readability
+const supabaseAdmin = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+  get: (_, prop) => getSupabaseAdmin()[prop as keyof ReturnType<typeof createClient<Database>>],
+});
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -35,11 +47,11 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        
+
         // Determine plan from Stripe price ID
         const priceId = subscription.items.data[0]?.price.id;
         let plan = 'starter';
-        
+
         if (priceId === process.env.STRIPE_PROFESSIONAL_PRICE_ID) {
           plan = 'professional';
         } else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID) {
@@ -106,11 +118,11 @@ export async function POST(request: NextRequest) {
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        
+
         // Downgrade to starter instead of canceling
         await supabaseAdmin
           .from('subscriptions')
-          .update({ 
+          .update({
             status: 'active',
             plan: 'starter',
             is_trial: false,

@@ -3,16 +3,25 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 import { Chrome } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  if (!url.startsWith('http')) return null;
+  return createClient(url, key);
+}
+
 export default function SignupPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [agencyName, setAgencyName] = useState('');
@@ -64,6 +73,12 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (!supabase) {
+      setError('Database connection not configured. Please check your environment variables.');
+      setLoading(false);
+      return;
+    }
 
     try {
       // Sign up the user
