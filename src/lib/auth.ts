@@ -16,19 +16,20 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     const cookieStore = cookies();
     const firebaseToken = cookieStore.get('firebase-token')?.value;
 
-    // 1. Check Firebase (highest priority for new flow)
-    if (firebaseToken) {
+    // 1. Try Firebase Auth first
+    if (firebaseToken && adminAuth) {
         try {
             const decodedToken = await adminAuth.verifyIdToken(firebaseToken);
             if (decodedToken) {
                 return {
                     id: decodedToken.uid,
-                    email: decodedToken.email,
-                    provider: 'firebase',
+                    email: decodedToken.email || '',
+                    provider: 'firebase', // Retaining provider for type correctness
                 };
             }
         } catch (error) {
-            // Token invalid or expired, continue to fallback
+            console.error('Firebase token verification failed:', error);
+            // Fall through to Supabase if token is invalid
         }
     }
 
