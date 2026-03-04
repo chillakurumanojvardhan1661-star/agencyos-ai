@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
         const { data: clients, error } = await (supabase.from('clients' as any) as any)
             .select('*')
-            .eq('agency_id', agencyData.id);
+            .eq('agency_id', (agencyData as any).id);
 
         if (error) throw error;
 

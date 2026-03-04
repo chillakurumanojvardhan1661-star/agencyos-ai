@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
     const { upload_id } = body;
 
     // Get upload with all related data
-    const { data: upload, error: uploadError } = await supabase
-      .from('ad_performance_uploads')
+    const { data: upload, error: uploadError } = await (supabase
+      .from('ad_performance_uploads' as any) as any)
       .select(`
         *,
         clients!inner(
@@ -63,22 +63,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Get brand kit
-    const { data: brandKit } = await supabase
-      .from('brand_kits')
+    const { data: brandKit } = await (supabase
+      .from('brand_kits' as any) as any)
       .select('*')
       .eq('client_id', client.id)
       .single();
 
     // Get report preferences
-    const { data: reportPreferences } = await supabase
-      .from('report_preferences')
+    const { data: reportPreferences } = await (supabase
+      .from('report_preferences' as any) as any)
       .select('*')
       .eq('agency_id', agency.id)
       .single();
 
     // Get subscription plan
-    const { data: subscription } = await supabase
-      .from('subscriptions')
+    const { data: subscription } = await (supabase
+      .from('subscriptions' as any) as any)
       .select('plan')
       .eq('agency_id', agency.id)
       .eq('status', 'active')

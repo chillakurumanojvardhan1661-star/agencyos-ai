@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     const input = generateSchema.parse(body);
 
     // Get client and agency info
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
+    const { data: client, error: clientError } = await (supabase
+      .from('clients' as any) as any)
       .select('agency_id, industry')
       .eq('id', input.client_id)
       .single();
@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get client context for AI memory
-    const { data: clientContext } = await supabase
-      .from('client_contexts')
+    const { data: clientContext } = await (supabase
+      .from('client_contexts' as any) as any)
       .select('*')
       .eq('client_id', input.client_id)
       .single();

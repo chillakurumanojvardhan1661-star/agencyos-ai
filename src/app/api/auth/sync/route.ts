@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
         const supabase = getSupabaseAdminClient();
 
         // Check if agency already exists for this owner_id (Firebase UID)
-        const { data: agency, error: fetchError } = await supabase
-            .from('agencies')
+        const { data: agency, error: fetchError } = await (supabase
+            .from('agencies' as any) as any)
             .select('id')
             .eq('owner_id', uid)
             .single();

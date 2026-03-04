@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         }
 
         const supabase = getSupabaseRouteClient();
-        const agencyResponse = await supabase.from('agencies').select('id').eq('owner_id', user.id).single();
+        const agencyResponse = await (supabase.from('agencies' as any) as any).select('id').eq('owner_id', user.id).single();
         const agencyId = (agencyResponse.data as any)?.id;
 
         if (!agencyId) {
