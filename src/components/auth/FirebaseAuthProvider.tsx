@@ -22,6 +22,10 @@ export const FirebaseAuthProvider = ({ children }: { children: React.ReactNode }
 
     useEffect(() => {
         // Client-side auth listener
+        if (!auth) {
+            setLoading(false);
+            return;
+        }
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             setUser(firebaseUser);
             setLoading(false);
