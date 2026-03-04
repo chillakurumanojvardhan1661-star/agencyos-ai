@@ -14,12 +14,13 @@ const firebaseConfig = {
 const isPlaceholder = !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('placeholder');
 
 // Initialize Firebase safely
-let app;
-let auth: any;
+let app: any = null;
+let auth: any = null;
 
 if (!isPlaceholder) {
     try {
-        app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+        const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+        app = firebaseApp;
         auth = getAuth(app);
     } catch (error) {
         console.error('Failed to initialize Firebase:', error);

@@ -21,6 +21,13 @@ export default function LoginPage() {
   const handleFirebaseLogin = async () => {
     setLoading(true);
     setError('');
+
+    if (!auth) {
+      setError('Firebase authentication is not configured. Please set your environment variables.');
+      setLoading(false);
+      return;
+    }
+
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
